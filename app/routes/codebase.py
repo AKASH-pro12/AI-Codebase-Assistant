@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
 
@@ -6,7 +8,8 @@ from app.database import db
 from app.services.file_processor import (
     save_and_extract_zip,
     get_code_files,
-    read_code_files
+    read_code_files,
+    get_repository_metadata
 )
 
 from app.services.code_chunker import chunk_code
@@ -50,6 +53,22 @@ def upload_codebase(file: UploadFile = File(...)):
 
     files_data = read_code_files(
         code_files
+    )
+
+    repository_metadata = get_repository_metadata(
+        extract_dir,
+        code_files
+    )
+
+    codebase_document = {
+        "codebase_name": file.filename,
+        "total_files": repository_metadata["total_files"],
+        "files": repository_metadata["files"],
+        "created_at": datetime.now(timezone.utc)
+    }
+
+    db.codebases.insert_one(
+        codebase_document
     )
 
     all_chunks = []
@@ -96,10 +115,59 @@ Code:
     }
 
 
+@router.get("/files")
+def get_repository_files():
+
+    codebase = db.codebases.find_one(
+        {},
+        {
+            "_id": 0,
+            "codebase_name": 1,
+            "total_files": 1,
+            "files": 1
+        },
+        sort=[
+            ("created_at", -1)
+        ]
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No processed codebase found"
+        )
+
+    files = []
+
+    for file_data in codebase.get(
+        "files",
+        []
+    ):
+
+        files.append({
+            "relative_path": file_data.get(
+                "relative_path"
+            ),
+            "extension": file_data.get(
+                "extension"
+            )
+        })
+
+    return {
+        "codebase_name": codebase.get(
+            "codebase_name"
+        ),
+        "total_files": codebase.get(
+            "total_files",
+            len(files)
+        ),
+        "files": files
+    }
+
+
 @router.post("/search")
 def search_codebase(request: SearchRequest):
-
-# Build contextual search query
 
     search_query = request.query
 
@@ -125,8 +193,6 @@ def search_codebase(request: SearchRequest):
                 + "\n"
                 + request.query
             )
-
-# Retrieve relevant code chunks
 
     if request.previous_sources:
 
@@ -169,20 +235,14 @@ def search_codebase(request: SearchRequest):
 
     else:
 
-# Generate query embedding
-
         query_embedding = generate_embedding(
             search_query
         )
-
-# Vector Search
 
         results = search_similar_chunks(
             query_embedding=query_embedding,
             limit=request.limit
         )
-
-# Build code context
 
     context_parts = []
 
@@ -202,17 +262,11 @@ Code:
         context_parts
     )
 
-
-# Generate LLM Answer
-
-
     answer = ask_llm(
         question=request.query,
         context=context,
         chat_history=request.chat_history
     )
-
-# Response
 
     return {
         "query": request.query,

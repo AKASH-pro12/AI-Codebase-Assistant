@@ -145,3 +145,32 @@ def read_code_files(code_files: list[str]):
             continue
 
     return files_data
+
+def get_repository_metadata(
+    directory: str,
+    code_files: list[str]
+):
+
+    files_metadata = []
+
+    for file_path in code_files:
+
+        relative_path = os.path.relpath(
+            file_path,
+            directory
+        )
+
+        extension = os.path.splitext(
+            file_path
+        )[1].lower()
+
+        files_metadata.append({
+            "file_path": file_path,
+            "relative_path": relative_path,
+            "extension": extension
+        })
+
+    return {
+        "total_files": len(files_metadata),
+        "files": files_metadata
+    }
