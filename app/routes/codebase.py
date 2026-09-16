@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
@@ -163,6 +164,98 @@ def get_repository_files():
             len(files)
         ),
         "files": files
+    }
+
+
+@router.get("/summary")
+def get_repository_summary():
+
+    codebase = db.codebases.find_one(
+        {},
+        {
+            "_id": 0,
+            "codebase_name": 1,
+            "total_files": 1,
+            "files": 1
+        },
+        sort=[
+            ("created_at", -1)
+        ]
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No processed codebase found"
+        )
+
+    files = codebase.get(
+        "files",
+        []
+    )
+
+    extension_counter = Counter()
+    directory_counter = Counter()
+
+    for file_data in files:
+
+        extension = file_data.get(
+            "extension"
+        )
+
+        if extension:
+
+            extension_counter[
+                extension
+            ] += 1
+
+        relative_path = file_data.get(
+            "relative_path",
+            ""
+        )
+
+        path_parts = relative_path.replace(
+            "\\",
+            "/"
+        ).split("/")
+
+        if len(path_parts) > 1:
+
+            top_level_directory = path_parts[0]
+
+            directory_counter[
+                top_level_directory
+            ] += 1
+
+    file_types = [
+        {
+            "extension": extension,
+            "count": count
+        }
+        for extension, count
+        in extension_counter.most_common()
+    ]
+
+    directories = [
+        {
+            "directory": directory,
+            "file_count": count
+        }
+        for directory, count
+        in directory_counter.most_common()
+    ]
+
+    return {
+        "codebase_name": codebase.get(
+            "codebase_name"
+        ),
+        "total_files": codebase.get(
+            "total_files",
+            len(files)
+        ),
+        "file_types": file_types,
+        "top_level_directories": directories
     }
 
 
