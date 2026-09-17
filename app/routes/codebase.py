@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import Query
 from pydantic import BaseModel
 
 from app.database import db
@@ -334,6 +335,116 @@ def get_repository_technologies():
             "codebase_name"
         ),
         "technologies": detected_technologies
+    }
+
+
+@router.get("/file")
+def get_file_details(
+    file_path: str = Query(
+        ...,
+        description="Relative path of the file inside the repository"
+    )
+):
+
+    codebase = db.codebases.find_one(
+        {},
+        {
+            "_id": 0,
+            "files": 1
+        },
+        sort=[
+            ("created_at", -1)
+        ]
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No processed codebase found"
+        )
+
+    requested_path = file_path.replace(
+        "\\",
+        "/"
+    )
+
+    matching_file = None
+
+    for file_data in codebase.get(
+        "files",
+        []
+    ):
+
+        stored_path = file_data.get(
+            "relative_path",
+            ""
+        ).replace(
+            "\\",
+            "/"
+        )
+
+        if stored_path == requested_path:
+
+            matching_file = file_data
+            break
+
+    if not matching_file:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"File not found: {file_path}"
+        )
+
+    stored_file_path = matching_file.get(
+        "file_path"
+    )
+
+    chunks = list(
+        db.code_chunks.find(
+            {
+                "file_path": stored_file_path
+            },
+            {
+                "_id": 0,
+                "chunk_index": 1,
+                "content": 1
+            }
+        ).sort(
+            "chunk_index",
+            1
+        )
+    )
+
+    if not chunks:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"No code content found for: {file_path}"
+        )
+
+    content_parts = []
+
+    for chunk in chunks:
+
+        content_parts.append(
+            chunk.get(
+                "content",
+                ""
+            )
+        )
+
+    content = "\n".join(
+        content_parts
+    )
+
+    return {
+        "file_path": requested_path,
+        "extension": matching_file.get(
+            "extension"
+        ),
+        "total_chunks": len(chunks),
+        "content": content
     }
 
 
