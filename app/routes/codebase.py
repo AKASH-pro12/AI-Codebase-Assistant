@@ -259,6 +259,84 @@ def get_repository_summary():
     }
 
 
+@router.get("/technologies")
+def get_repository_technologies():
+
+    codebase = db.codebases.find_one(
+        {},
+        {
+            "_id": 0,
+            "codebase_name": 1,
+            "files": 1
+        },
+        sort=[
+            ("created_at", -1)
+        ]
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No processed codebase found"
+        )
+
+    files = codebase.get(
+        "files",
+        []
+    )
+
+    technology_rules = {
+        "Python": {".py"},
+        "JavaScript": {".js", ".jsx"},
+        "TypeScript": {".ts", ".tsx"},
+        "HTML": {".html"},
+        "CSS": {".css"},
+        "Java": {".java"},
+        "C/C++": {".c", ".cpp", ".h"},
+        "SQL": {".sql"},
+        "Markdown": {".md"},
+        "JSON": {".json"}
+    }
+
+    detected_technologies = []
+
+    for technology, extensions in technology_rules.items():
+
+        evidence = []
+
+        for file_data in files:
+
+            extension = file_data.get(
+                "extension",
+                ""
+            ).lower()
+
+            if extension in extensions:
+
+                evidence.append(
+                    extension
+                )
+
+        evidence = sorted(
+            set(evidence)
+        )
+
+        if evidence:
+
+            detected_technologies.append({
+                "name": technology,
+                "evidence": evidence
+            })
+
+    return {
+        "codebase_name": codebase.get(
+            "codebase_name"
+        ),
+        "technologies": detected_technologies
+    }
+
+
 @router.post("/search")
 def search_codebase(request: SearchRequest):
 
