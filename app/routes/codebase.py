@@ -25,7 +25,9 @@ from app.services.dependency_analyzer import (
     analyze_python_dependencies,
     resolve_local_dependencies
 )
-
+from app.services.relationship_analyzer import (
+    build_repository_relationships
+)
 
 router = APIRouter(
     prefix="/codebase",
@@ -974,6 +976,160 @@ def get_file_dependencies(
         "total_local_dependencies": len(local_dependencies),
         "imports": dependencies,
         "local_dependencies": local_dependencies
+    }
+
+@router.get("/relationships")
+def get_file_relationships(
+    file_path: str = Query(
+        ...,
+        description="Relative path of the Python file inside the repository"
+    )
+):
+
+    codebase = db.codebases.find_one(
+        {},
+        {
+            "_id": 0,
+            "files": 1
+        },
+        sort=[
+            ("created_at", -1)
+        ]
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No processed codebase found"
+        )
+
+    requested_path = file_path.replace(
+        "\\",
+        "/"
+    )
+
+    matching_file = None
+
+    for file_data in codebase.get(
+        "files",
+        []
+    ):
+
+        stored_path = file_data.get(
+            "relative_path",
+            ""
+        ).replace(
+            "\\",
+            "/"
+        )
+
+        if stored_path == requested_path:
+
+            matching_file = file_data
+            break
+
+    if not matching_file:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"File not found: {file_path}"
+        )
+
+    extension = matching_file.get(
+        "extension",
+        ""
+    ).lower()
+
+    if extension != ".py":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Relationship analysis is currently supported only for Python files"
+        )
+
+    repository_files = []
+
+    for file_data in codebase.get(
+        "files",
+        []
+    ):
+
+        repository_file = file_data.get(
+            "file_path"
+        )
+
+        if repository_file:
+
+            repository_files.append(
+                repository_file
+            )
+
+    all_dependencies = []
+
+    for repository_file in repository_files:
+
+        if not repository_file.lower().endswith(
+            ".py"
+        ):
+            continue
+
+        try:
+
+            dependencies = analyze_python_dependencies(
+                repository_file
+            )
+
+            local_dependencies = resolve_local_dependencies(
+                file_path=repository_file,
+                dependencies=dependencies,
+                repository_files=repository_files
+            )
+
+            all_dependencies.extend(
+                local_dependencies
+            )
+
+        except ValueError:
+
+            continue
+
+    relationships = build_repository_relationships(
+        all_dependencies
+    )
+
+    file_relationships = [
+        relationship
+        for relationship in relationships
+        if (
+            relationship["source_file"] == matching_file.get("file_path")
+            or relationship["target_file"] == matching_file.get("file_path")
+        )
+    ]
+
+    outgoing_relationships = [
+        relationship
+        for relationship in file_relationships
+        if relationship["source_file"] == matching_file.get(
+            "file_path"
+        )
+    ]
+
+    incoming_relationships = [
+        relationship
+        for relationship in file_relationships
+        if relationship["target_file"] == matching_file.get(
+            "file_path"
+        )
+    ]
+
+    return {
+        "file_path": requested_path,
+        "total_relationships": len(file_relationships),
+        "outgoing_count": len(outgoing_relationships),
+        "incoming_count": len(incoming_relationships),
+        "outgoing_relationships": outgoing_relationships,
+        "incoming_relationships": incoming_relationships
     }
 
 
