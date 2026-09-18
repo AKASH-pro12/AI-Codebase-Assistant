@@ -19,6 +19,7 @@ from app.services.embedding import generate_embedding
 from app.services.vector_search import search_similar_chunks
 from app.services.llm import ask_llm, explain_file
 from app.services.function_analyzer import analyze_python_file
+from app.services.class_analyzer import analyze_python_classes
 
 
 router = APIRouter(
@@ -660,6 +661,101 @@ def get_file_functions(
         "extension": extension,
         "total_functions": len(functions),
         "functions": functions
+    }
+
+
+@router.get("/classes")
+def get_file_classes(
+    file_path: str = Query(
+        ...,
+        description="Relative path of the Python file inside the repository"
+    )
+):
+
+    codebase = db.codebases.find_one(
+        {},
+        {
+            "_id": 0,
+            "files": 1
+        },
+        sort=[
+            ("created_at", -1)
+        ]
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No processed codebase found"
+        )
+
+    requested_path = file_path.replace(
+        "\\",
+        "/"
+    )
+
+    matching_file = None
+
+    for file_data in codebase.get(
+        "files",
+        []
+    ):
+
+        stored_path = file_data.get(
+            "relative_path",
+            ""
+        ).replace(
+            "\\",
+            "/"
+        )
+
+        if stored_path == requested_path:
+
+            matching_file = file_data
+            break
+
+    if not matching_file:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"File not found: {file_path}"
+        )
+
+    extension = matching_file.get(
+        "extension",
+        ""
+    ).lower()
+
+    if extension != ".py":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Class analysis is currently supported only for Python files"
+        )
+
+    stored_file_path = matching_file.get(
+        "file_path"
+    )
+
+    try:
+
+        classes = analyze_python_classes(
+            stored_file_path
+        )
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    return {
+        "file_path": requested_path,
+        "extension": extension,
+        "total_classes": len(classes),
+        "classes": classes
     }
 
 
