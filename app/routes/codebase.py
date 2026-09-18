@@ -21,6 +21,10 @@ from app.services.llm import ask_llm, explain_file
 from app.services.function_analyzer import analyze_python_file
 from app.services.class_analyzer import analyze_python_classes
 from app.services.api_route_analyzer import analyze_python_routes
+from app.services.dependency_analyzer import (
+    analyze_python_dependencies,
+    resolve_local_dependencies
+)
 
 
 router = APIRouter(
@@ -851,6 +855,125 @@ def get_file_routes(
         "extension": extension,
         "total_routes": len(routes),
         "routes": routes
+    }
+
+@router.get("/dependencies")
+def get_file_dependencies(
+    file_path: str = Query(
+        ...,
+        description="Relative path of the Python file inside the repository"
+    )
+):
+
+    codebase = db.codebases.find_one(
+        {},
+        {
+            "_id": 0,
+            "files": 1
+        },
+        sort=[
+            ("created_at", -1)
+        ]
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No processed codebase found"
+        )
+
+    requested_path = file_path.replace(
+        "\\",
+        "/"
+    )
+
+    matching_file = None
+
+    for file_data in codebase.get(
+        "files",
+        []
+    ):
+
+        stored_path = file_data.get(
+            "relative_path",
+            ""
+        ).replace(
+            "\\",
+            "/"
+        )
+
+        if stored_path == requested_path:
+
+            matching_file = file_data
+            break
+
+    if not matching_file:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"File not found: {file_path}"
+        )
+
+    extension = matching_file.get(
+        "extension",
+        ""
+    ).lower()
+
+    if extension != ".py":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Dependency analysis is currently supported only for Python files"
+        )
+
+    stored_file_path = matching_file.get(
+        "file_path"
+    )
+
+    try:
+
+        dependencies = analyze_python_dependencies(
+            stored_file_path
+        )
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    repository_files = []
+
+    for file_data in codebase.get(
+        "files",
+        []
+    ):
+
+        repository_file = file_data.get(
+            "file_path"
+        )
+
+        if repository_file:
+
+            repository_files.append(
+                repository_file
+            )
+
+    local_dependencies = resolve_local_dependencies(
+        file_path=stored_file_path,
+        dependencies=dependencies,
+        repository_files=repository_files
+    )
+
+    return {
+        "file_path": requested_path,
+        "extension": extension,
+        "total_imports": len(dependencies),
+        "total_local_dependencies": len(local_dependencies),
+        "imports": dependencies,
+        "local_dependencies": local_dependencies
     }
 
 
