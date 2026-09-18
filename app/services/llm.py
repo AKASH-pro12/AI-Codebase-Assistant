@@ -32,7 +32,6 @@ def ask_llm(
                 f"{role}: {content}\n"
             )
 
-
     prompt = f"""
 You are an AI Codebase Assistant.
 
@@ -43,7 +42,7 @@ Answer the user's current question using:
 1. The provided code context.
 2. The previous conversation when relevant.
 
-RULES:
+IMPORTANT RULES:
 
 - Answer only from the provided code context and conversation.
 - Do not invent files, functions, classes, routes, libraries,
@@ -59,7 +58,7 @@ RULES:
 - When showing a code line, format it using backticks.
 - Keep answers focused on the user's question.
 
-STYLE:
+RESPONSE STYLE:
 
 - For simple factual questions, give a short but useful answer
   with one or two supporting details.
@@ -107,3 +106,82 @@ FINAL ANSWER:
         )
 
     return content
+
+
+def explain_file(
+    file_path: str,
+    extension: str,
+    content: str
+):
+
+    prompt = f"""
+You are an AI Codebase Assistant.
+
+Explain the provided source code file accurately based only
+on the file content given below.
+
+FILE INFORMATION:
+
+File: {file_path}
+Extension: {extension}
+
+CODE:
+
+{content}
+
+IMPORTANT RULES:
+
+- Use only the provided file content.
+- Do not invent functionality that is not present in the file.
+- Do not assume the purpose of missing or unseen files.
+- Do not claim that a library, function, class, route, database,
+  or feature exists unless it is visible in the provided code.
+- If something cannot be determined from this file, clearly
+  state that it cannot be determined from the provided file.
+- Do not reproduce the entire source code.
+- Mention important functions, classes, routes, imports,
+  configuration, or application logic when they are present.
+- Keep the explanation technically accurate and developer-friendly.
+
+STRUCTURE THE RESPONSE AS:
+
+Purpose:
+Briefly explain what this file does.
+
+Key Components:
+List the important components found in the file.
+
+How It Works:
+Explain the main execution or processing flow.
+
+Important Details:
+Mention relevant frameworks, libraries, database connections,
+routes, configuration, or other significant implementation
+details that are actually present.
+
+Keep the explanation concise but sufficiently detailed for a
+developer to understand the role of this file.
+
+FINAL ANSWER:
+"""
+
+    response = llm.invoke(
+        prompt
+    )
+
+    explanation = response.content
+
+    if not isinstance(explanation, str):
+
+        explanation = str(explanation)
+
+    explanation = explanation.strip()
+
+    if not explanation:
+
+        return (
+            "I could not generate an explanation "
+            "from the provided file."
+        )
+
+    return explanation
