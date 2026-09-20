@@ -23,8 +23,7 @@ from app.routes.codebase_routes.search import (
 
 
 router = APIRouter(
-    prefix="/codebase",
-    tags=["Codebase"]
+    prefix="/codebase"
 )
 
 
