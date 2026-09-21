@@ -25,6 +25,10 @@ from app.routes.codebase_routes.issues import (
     router as issues_router
 )
 
+from app.routes.codebase_routes.improvements import (
+    router as improvements_router
+)
+
 
 router = APIRouter(
     prefix="/codebase"
@@ -53,4 +57,8 @@ router.include_router(
 
 router.include_router(
     issues_router
+)
+
+router.include_router(
+    improvements_router
 )
