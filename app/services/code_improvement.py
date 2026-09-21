@@ -1,4 +1,5 @@
 from app.services.llm import ask_llm
+from app.services.source_context import get_source_context
 
 
 def generate_code_improvements(
@@ -23,15 +24,48 @@ def generate_code_improvements(
         start=1
     ):
 
+        file_path = issue.get(
+            "file_path",
+            "Unknown"
+        )
+
+        line_number = issue.get(
+            "line_number",
+            0
+        )
+
+        source_context = ""
+
+        if (
+            file_path != "Unknown"
+            and isinstance(
+                line_number,
+                int
+            )
+            and line_number > 0
+        ):
+
+            source_context = get_source_context(
+                file_path=file_path,
+                line_number=line_number,
+                context_lines=3
+            )
+
+        if not source_context:
+
+            source_context = (
+                "Source context is not available."
+            )
+
         issue_context_parts.append(
             f"""
 Issue {index}
 
 File:
-{issue.get("file_path", "Unknown")}
+{file_path}
 
 Line:
-{issue.get("line_number", "Unknown")}
+{line_number}
 
 Severity:
 {issue.get("severity", "Unknown")}
@@ -39,8 +73,11 @@ Severity:
 Issue Type:
 {issue.get("issue_type", "Unknown")}
 
-Message:
+Detected Message:
 {issue.get("message", "No description available")}
+
+Actual Source Context:
+{source_context}
 """
         )
 
@@ -50,8 +87,9 @@ Message:
 
     answer = ask_llm(
         question=(
-            "Provide practical improvement suggestions "
-            "for the detected code issues."
+            "Provide practical and source-specific "
+            "improvement suggestions for the detected "
+            "code issues."
         ),
         context=issue_context,
         chat_history=chat_history
