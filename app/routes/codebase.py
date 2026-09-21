@@ -29,6 +29,10 @@ from app.routes.codebase_routes.improvements import (
     router as improvements_router
 )
 
+from app.routes.codebase_routes.fix import (
+    router as fix_router
+)
+
 
 router = APIRouter(
     prefix="/codebase"
@@ -61,4 +65,8 @@ router.include_router(
 
 router.include_router(
     improvements_router
+)
+
+router.include_router(
+    fix_router
 )
