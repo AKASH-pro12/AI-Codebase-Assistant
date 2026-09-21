@@ -21,6 +21,10 @@ from app.routes.codebase_routes.search import (
     router as search_router
 )
 
+from app.routes.codebase_routes.issues import (
+    router as issues_router
+)
+
 
 router = APIRouter(
     prefix="/codebase"
@@ -45,4 +49,8 @@ router.include_router(
 
 router.include_router(
     search_router
+)
+
+router.include_router(
+    issues_router
 )
