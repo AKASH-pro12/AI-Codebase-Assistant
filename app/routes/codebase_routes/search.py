@@ -1,8 +1,6 @@
 from fastapi import APIRouter
-
 from pydantic import BaseModel
 
-from app.database import db
 from app.services.embedding import generate_embedding
 from app.services.vector_search import search_similar_chunks
 from app.services.llm import ask_llm
@@ -14,21 +12,22 @@ router = APIRouter(
 
 
 class SearchRequest(BaseModel):
-    question: str
+    query: str
+    limit: int = 5
+    chat_history: list = []
+    previous_sources: list = []
 
 
 @router.post("/search")
 def search_codebase(request: SearchRequest):
 
-    question = request.question
-
     query_embedding = generate_embedding(
-        question
+        request.query
     )
 
     results = search_similar_chunks(
         query_embedding=query_embedding,
-        limit=5
+        limit=request.limit
     )
 
     context_parts = []
@@ -59,13 +58,13 @@ CODE:
     )
 
     answer = ask_llm(
-        question=question,
+        question=request.query,
         context=context,
-        chat_history=[]
+        chat_history=request.chat_history
     )
 
     return {
-        "question": question,
+        "question": request.query,
         "answer": answer,
         "sources": [
             {
