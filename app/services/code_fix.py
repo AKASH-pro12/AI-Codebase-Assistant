@@ -57,9 +57,7 @@ SOURCE CONTEXT:
 
     answer = ask_llm(
         question=(
-            "Generate a safe and specific code fix suggestion "
-            "for this detected issue. Show the current relevant "
-            "code and the proposed replacement when possible."
+            "Generate a safe and specific code fix suggestion for this detected issue. Show the current relevant code and the proposed replacement when possible."
         ),
         context=context,
         chat_history=chat_history
