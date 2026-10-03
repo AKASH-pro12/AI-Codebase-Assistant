@@ -13,13 +13,16 @@ router = APIRouter(
 
 class SearchRequest(BaseModel):
     query: str
+    codebase_id: str
     limit: int = 5
     chat_history: list = []
     previous_sources: list = []
 
 
 @router.post("/search")
-def search_codebase(request: SearchRequest):
+def search_codebase(
+    request: SearchRequest
+):
 
     query_embedding = generate_embedding(
         request.query
@@ -27,6 +30,7 @@ def search_codebase(request: SearchRequest):
 
     results = search_similar_chunks(
         query_embedding=query_embedding,
+        codebase_id=request.codebase_id,
         limit=request.limit
     )
 
@@ -65,6 +69,7 @@ CODE:
 
     return {
         "question": request.query,
+        "codebase_id": request.codebase_id,
         "answer": answer,
         "sources": [
             {

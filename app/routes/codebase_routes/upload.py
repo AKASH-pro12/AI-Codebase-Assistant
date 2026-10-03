@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
@@ -52,7 +53,12 @@ def upload_codebase(
         code_files
     )
 
+    codebase_id = str(
+        uuid.uuid4()
+    )
+
     codebase_document = {
+        "codebase_id": codebase_id,
         "codebase_name": file.filename,
         "total_files": repository_metadata["total_files"],
         "files": repository_metadata["files"],
@@ -86,6 +92,7 @@ Code:
             )
 
             all_chunks.append({
+                "codebase_id": codebase_id,
                 "file_path": file_data["file_path"],
                 "extension": file_data["extension"],
                 "chunk_index": chunk["chunk_index"],
@@ -101,6 +108,7 @@ Code:
 
     return {
         "message": "Codebase processed and stored successfully",
+        "codebase_id": codebase_id,
         "filename": file.filename,
         "total_files": len(files_data),
         "total_chunks": len(all_chunks)

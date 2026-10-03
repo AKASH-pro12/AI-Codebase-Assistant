@@ -10,27 +10,178 @@ router = APIRouter(
 )
 
 
-@router.get("/files")
-def get_repository_files():
+@router.get("/list")
+def list_codebases():
 
-    codebase = db.codebases.find_one(
+    codebases = db.codebases.find(
         {},
         {
             "_id": 0,
+            "codebase_id": 1,
             "codebase_name": 1,
             "total_files": 1,
-            "files": 1
+            "created_at": 1
+        }
+    ).sort(
+        "created_at",
+        -1
+    )
+
+    codebase_list = []
+
+    for codebase in codebases:
+
+        codebase_list.append({
+            "codebase_id": codebase.get(
+                "codebase_id"
+            ),
+            "codebase_name": codebase.get(
+                "codebase_name"
+            ),
+            "total_files": codebase.get(
+                "total_files",
+                0
+            ),
+            "created_at": codebase.get(
+                "created_at"
+            )
+        })
+
+    return {
+        "total_codebases": len(
+            codebase_list
+        ),
+        "codebases": codebase_list
+    }
+
+
+@router.get("/details/{codebase_id}")
+def get_codebase_details(
+    codebase_id: str
+):
+
+    codebase = db.codebases.find_one(
+        {
+            "codebase_id": codebase_id
         },
-        sort=[
-            ("created_at", -1)
-        ]
+        {
+            "_id": 0,
+            "codebase_id": 1,
+            "codebase_name": 1,
+            "total_files": 1,
+            "files": 1,
+            "created_at": 1
+        }
     )
 
     if not codebase:
 
         raise HTTPException(
             status_code=404,
-            detail="No processed codebase found"
+            detail=f"Codebase not found: {codebase_id}"
+        )
+
+    files = codebase.get(
+        "files",
+        []
+    )
+
+    return {
+        "codebase_id": codebase.get(
+            "codebase_id"
+        ),
+        "codebase_name": codebase.get(
+            "codebase_name"
+        ),
+        "total_files": codebase.get(
+            "total_files",
+            len(files)
+        ),
+        "created_at": codebase.get(
+            "created_at"
+        ),
+        "files": [
+            {
+                "relative_path": file_data.get(
+                    "relative_path"
+                ),
+                "extension": file_data.get(
+                    "extension"
+                )
+            }
+            for file_data in files
+        ]
+    }
+
+
+@router.delete("/delete/{codebase_id}")
+def delete_codebase(
+    codebase_id: str
+):
+
+    codebase = db.codebases.find_one(
+        {
+            "codebase_id": codebase_id
+        }
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Codebase not found: {codebase_id}"
+        )
+
+    chunks_result = db.code_chunks.delete_many(
+        {
+            "codebase_id": codebase_id
+        }
+    )
+
+    codebase_result = db.codebases.delete_one(
+        {
+            "codebase_id": codebase_id
+        }
+    )
+
+    return {
+        "message": "Codebase deleted successfully",
+        "codebase_id": codebase_id,
+        "deleted_codebase_documents": (
+            codebase_result.deleted_count
+        ),
+        "deleted_chunks": (
+            chunks_result.deleted_count
+        )
+    }
+
+
+@router.get("/files")
+def get_repository_files(
+    codebase_id: str = Query(
+        ...,
+        description="ID of the codebase"
+    )
+):
+
+    codebase = db.codebases.find_one(
+        {
+            "codebase_id": codebase_id
+        },
+        {
+            "_id": 0,
+            "codebase_id": 1,
+            "codebase_name": 1,
+            "total_files": 1,
+            "files": 1
+        }
+    )
+
+    if not codebase:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Codebase not found: {codebase_id}"
         )
 
     files = []
@@ -50,6 +201,9 @@ def get_repository_files():
         })
 
     return {
+        "codebase_id": codebase.get(
+            "codebase_id"
+        ),
         "codebase_name": codebase.get(
             "codebase_name"
         ),
@@ -62,26 +216,31 @@ def get_repository_files():
 
 
 @router.get("/summary")
-def get_repository_summary():
+def get_repository_summary(
+    codebase_id: str = Query(
+        ...,
+        description="ID of the codebase"
+    )
+):
 
     codebase = db.codebases.find_one(
-        {},
+        {
+            "codebase_id": codebase_id
+        },
         {
             "_id": 0,
+            "codebase_id": 1,
             "codebase_name": 1,
             "total_files": 1,
             "files": 1
-        },
-        sort=[
-            ("created_at", -1)
-        ]
+        }
     )
 
     if not codebase:
 
         raise HTTPException(
             status_code=404,
-            detail="No processed codebase found"
+            detail=f"Codebase not found: {codebase_id}"
         )
 
     files = codebase.get(
@@ -141,6 +300,9 @@ def get_repository_summary():
     ]
 
     return {
+        "codebase_id": codebase.get(
+            "codebase_id"
+        ),
         "codebase_name": codebase.get(
             "codebase_name"
         ),
@@ -154,25 +316,30 @@ def get_repository_summary():
 
 
 @router.get("/technologies")
-def get_repository_technologies():
+def get_repository_technologies(
+    codebase_id: str = Query(
+        ...,
+        description="ID of the codebase"
+    )
+):
 
     codebase = db.codebases.find_one(
-        {},
+        {
+            "codebase_id": codebase_id
+        },
         {
             "_id": 0,
+            "codebase_id": 1,
             "codebase_name": 1,
             "files": 1
-        },
-        sort=[
-            ("created_at", -1)
-        ]
+        }
     )
 
     if not codebase:
 
         raise HTTPException(
             status_code=404,
-            detail="No processed codebase found"
+            detail=f"Codebase not found: {codebase_id}"
         )
 
     files = codebase.get(
@@ -224,6 +391,9 @@ def get_repository_technologies():
             })
 
     return {
+        "codebase_id": codebase.get(
+            "codebase_id"
+        ),
         "codebase_name": codebase.get(
             "codebase_name"
         ),
@@ -233,6 +403,10 @@ def get_repository_technologies():
 
 @router.get("/file")
 def get_file_details(
+    codebase_id: str = Query(
+        ...,
+        description="ID of the codebase"
+    ),
     file_path: str = Query(
         ...,
         description="Relative path of the file inside the repository"
@@ -240,21 +414,21 @@ def get_file_details(
 ):
 
     codebase = db.codebases.find_one(
-        {},
+        {
+            "codebase_id": codebase_id
+        },
         {
             "_id": 0,
+            "codebase_id": 1,
             "files": 1
-        },
-        sort=[
-            ("created_at", -1)
-        ]
+        }
     )
 
     if not codebase:
 
         raise HTTPException(
             status_code=404,
-            detail="No processed codebase found"
+            detail=f"Codebase not found: {codebase_id}"
         )
 
     requested_path = file_path.replace(
@@ -296,6 +470,7 @@ def get_file_details(
     chunks = list(
         db.code_chunks.find(
             {
+                "codebase_id": codebase_id,
                 "file_path": stored_file_path
             },
             {
@@ -332,6 +507,7 @@ def get_file_details(
     )
 
     return {
+        "codebase_id": codebase_id,
         "file_path": requested_path,
         "extension": matching_file.get(
             "extension"

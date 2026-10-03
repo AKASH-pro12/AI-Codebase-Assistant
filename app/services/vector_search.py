@@ -3,6 +3,7 @@ from app.database import db
 
 def search_similar_chunks(
     query_embedding: list,
+    codebase_id: str,
     limit: int = 5
 ):
 
@@ -13,12 +14,16 @@ def search_similar_chunks(
                 "path": "embedding",
                 "queryVector": query_embedding,
                 "numCandidates": 100,
-                "limit": limit
+                "limit": limit,
+                "filter": {
+                    "codebase_id": codebase_id
+                }
             }
         },
         {
             "$project": {
                 "_id": 0,
+                "codebase_id": 1,
                 "file_path": 1,
                 "extension": 1,
                 "chunk_index": 1,
