@@ -1,9 +1,16 @@
+import io
 import os
+import shutil
 import zipfile
 
 
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = os.getenv(
+    "UPLOAD_DIR",
+    "/tmp/uploads" if (os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME")) else "uploads"
+)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 
 ALLOWED_EXTENSIONS = {
     ".py",
@@ -38,39 +45,48 @@ IGNORED_FILES = {
     "package-lock.json",
     "yarn.lock",
     "pnpm-lock.yaml",
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.production",
+    ".env.test",
+    "id_rsa",
+    "id_ed25519",
+}
+
+IGNORED_FILE_EXTENSIONS = {
+    ".pem",
+    ".key",
+    ".pfx",
+    ".p12",
 }
 
 
-def save_and_extract_zip(file, filename: str):
-
+def save_and_extract_zip(raw_data: bytes, codebase_id: str) -> str:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    extract_dir = os.path.join(UPLOAD_DIR, codebase_id)
+    os.makedirs(extract_dir, exist_ok=True)
 
-    zip_path = os.path.join(
-        UPLOAD_DIR,
-        filename
-    )
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw_data), "r") as zip_ref:
+            abs_extract = os.path.realpath(extract_dir)
 
-    with open(zip_path, "wb") as buffer:
-        buffer.write(file)
+            for member in zip_ref.infolist():
+                norm_name = os.path.normpath(member.filename)
+                if norm_name.startswith("..") or os.path.isabs(norm_name):
+                    raise ValueError(f"Path traversal detected in ZIP: {member.filename}")
 
-    extract_dir = os.path.join(
-        UPLOAD_DIR,
-        os.path.splitext(filename)[0]
-    )
+                target_path = os.path.realpath(os.path.join(extract_dir, member.filename))
+                if not (target_path == abs_extract or target_path.startswith(abs_extract + os.sep)):
+                    raise ValueError(f"Path traversal detected in ZIP: {member.filename}")
 
-    os.makedirs(
-        extract_dir,
-        exist_ok=True
-    )
-
-    with zipfile.ZipFile(
-        zip_path,
-        "r"
-    ) as zip_ref:
-
-        zip_ref.extractall(
-            extract_dir
-        )
+            zip_ref.extractall(extract_dir)
+    except zipfile.BadZipFile:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        raise ValueError("Invalid or corrupted ZIP archive")
+    except Exception:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        raise
 
     return extract_dir
 
@@ -89,13 +105,16 @@ def get_code_files(directory: str):
 
         for filename in files:
 
-            # Ignore dependency/lock files
+            # Ignore dependency/lock and secret files
             if filename in IGNORED_FILES:
                 continue
 
             extension = os.path.splitext(
                 filename
             )[1].lower()
+
+            if extension in IGNORED_FILE_EXTENSIONS:
+                continue
 
             if extension in ALLOWED_EXTENSIONS:
 
@@ -158,7 +177,7 @@ def get_repository_metadata(
         relative_path = os.path.relpath(
             file_path,
             directory
-        )
+        ).replace("\\", "/")
 
         extension = os.path.splitext(
             file_path

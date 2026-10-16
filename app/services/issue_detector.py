@@ -227,27 +227,25 @@ class IssueDetector(ast.NodeVisitor):
 
 
 def analyze_python_issues(
-    file_path: str
+    file_path: str,
+    source_code: str | None = None
 ):
 
-    try:
-
-        with open(
-            file_path,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            source_code = file.read()
-
-    except (
-        UnicodeDecodeError,
-        OSError
-    ) as error:
-
-        raise ValueError(
-            f"Unable to read Python file: {error}"
-        )
+    if source_code is None:
+        try:
+            with open(
+                file_path,
+                "r",
+                encoding="utf-8"
+            ) as file:
+                source_code = file.read()
+        except (
+            UnicodeDecodeError,
+            OSError
+        ) as error:
+            raise ValueError(
+                f"Unable to read Python file: {error}"
+            )
 
     detector = IssueDetector(
         source_code

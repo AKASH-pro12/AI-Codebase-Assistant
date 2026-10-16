@@ -33,6 +33,10 @@ from app.routes.codebase_routes.fix import (
     router as fix_router
 )
 
+from app.routes.codebase_routes.chat import (
+    router as chat_router
+)
+
 
 router = APIRouter(
     prefix="/codebase"
@@ -70,3 +74,7 @@ router.include_router(
 router.include_router(
     fix_router
 )
+
+router.include_router(
+    chat_router
+)

@@ -63,6 +63,8 @@ class APIRouteAnalyzer(ast.NodeVisitor):
                 )
 
 
+    HTTP_METHODS = {"get", "post", "put", "delete", "patch", "options", "head"}
+
     def _parse_route_decorator(
         self,
         decorator
@@ -80,33 +82,36 @@ class APIRouteAnalyzer(ast.NodeVisitor):
         ):
             return None
 
-        if decorator.func.attr != "route":
+        attr_name = decorator.func.attr.lower()
+        if attr_name not in self.HTTP_METHODS and attr_name not in {"route", "api_route"}:
             return None
 
         route_path = None
-
         methods = []
 
         if decorator.args:
-
             route_path = self._get_string_value(
                 decorator.args[0]
             )
 
-        for keyword in decorator.keywords:
+        if attr_name in self.HTTP_METHODS:
+            methods = [attr_name.upper()]
+        else:
+            for keyword in decorator.keywords:
+                if keyword.arg == "methods":
+                    methods = self._get_methods(
+                        keyword.value
+                    )
+            if not methods:
+                methods = ["GET"]
 
-            if keyword.arg == "methods":
-
-                methods = self._get_methods(
-                    keyword.value
-                )
-
-        if not methods:
-
-            methods = ["GET"]
+        if not route_path:
+            for keyword in decorator.keywords:
+                if keyword.arg == "path":
+                    route_path = self._get_string_value(keyword.value)
 
         return {
-            "path": route_path,
+            "path": route_path or "/",
             "methods": methods
         }
 
@@ -177,27 +182,25 @@ class APIRouteAnalyzer(ast.NodeVisitor):
 
 
 def analyze_python_routes(
-    file_path: str
+    file_path: str,
+    source_code: str | None = None
 ):
 
-    try:
-
-        with open(
-            file_path,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            source_code = file.read()
-
-    except (
-        UnicodeDecodeError,
-        OSError
-    ) as error:
-
-        raise ValueError(
-            f"Unable to read file: {error}"
-        )
+    if source_code is None:
+        try:
+            with open(
+                file_path,
+                "r",
+                encoding="utf-8"
+            ) as file:
+                source_code = file.read()
+        except (
+            UnicodeDecodeError,
+            OSError
+        ) as error:
+            raise ValueError(
+                f"Unable to read file: {error}"
+            )
 
 
     try:

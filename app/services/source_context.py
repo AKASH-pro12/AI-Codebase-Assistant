@@ -1,25 +1,26 @@
 def get_source_context(
     file_path: str,
     line_number: int,
-    context_lines: int = 3
+    context_lines: int = 3,
+    source_code: str | None = None
 ):
 
-    try:
-
-        with open(
-            file_path,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            lines = file.readlines()
-
-    except (
-        UnicodeDecodeError,
-        OSError
-    ):
-
-        return ""
+    lines = []
+    if source_code is not None:
+        lines = source_code.splitlines(keepends=True)
+    else:
+        try:
+            with open(
+                file_path,
+                "r",
+                encoding="utf-8"
+            ) as file:
+                lines = file.readlines()
+        except (
+            UnicodeDecodeError,
+            OSError
+        ):
+            return ""
 
     if not lines:
         return ""
