@@ -1,0 +1,9 @@
+# Enforce LF line endings and proper text handling across platforms (Windows / Linux / Vercel)
+* text=auto eol=lf
+*.txt text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.css text eol=lf
+*.md text eol=lf
