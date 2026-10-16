@@ -4,14 +4,6 @@ An AI-powered developer platform that helps developers understand, analyze, and 
 
 The platform combines a Next.js frontend, FastAPI backend, MongoDB Atlas, sentence-transformer embeddings, and Groq-hosted LLMs to provide code insights, architecture exploration, issue detection, and AI-assisted code improvement suggestions.
 
-## 🚀 Live Demo
-
-- **Frontend Application:** https://ai-codebase-assistant-six.vercel.app
-- **Backend API:** https://ai-codebase-assistant-jje9.onrender.com
-- **API Documentation:** https://ai-codebase-assistant-jje9.onrender.com/docs
-
-> Note: The backend may take some time to respond after a period of inactivity, depending on the hosting service.
-
 ## ✨ Key Features
 
 ### 🔐 Authentication and User Management
@@ -273,13 +265,3 @@ The exact file and folder structure may vary with the current repository version
 - Combine static analysis with context-aware AI assistance.
 - Help developers identify potential code quality issues.
 - Provide a centralized workspace for repository analysis.
-
-## 👨‍💻 Author
-
-**Akash A**
-
-GitHub: [AKASH-pro12](https://github.com/AKASH-pro12)
-
-## 📄 License
-
-No license has been specified here. Add a `LICENSE` file and update this section if you intend to publish the project under a particular open-source license.
