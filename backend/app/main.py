@@ -29,6 +29,7 @@ allowed_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
+    "https://ai-codebase-assistant-six.vercel.app",
 ]
 if frontend_url:
     for u in frontend_url.split(","):
